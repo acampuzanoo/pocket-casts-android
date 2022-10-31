@@ -591,12 +591,12 @@ open class PlaybackManager @Inject constructor(
         }
     }
 
-    fun skipForward(playbackSource: PlaybackSource = PlaybackSource.UNKNOWN) {
+    fun skipForward(playbackSource: PlaybackSource = PlaybackSource.UNKNOWN, jumpAmountSeconds: Int = settings.getSkipForwardInSecs()) {
         launch {
             LogBuffer.i(LogBuffer.TAG_PLAYBACK, "Skip forward tapped")
 
             val episode = getCurrentEpisode() ?: return@launch
-            val jumpAmountMs = settings.getSkipForwardInSecs() * 1000
+            val jumpAmountMs = jumpAmountSeconds * 1000
 
             val currentTimeMs = getCurrentTimeMs(episode = episode)
             if (currentTimeMs < 0 || player?.episodeUuid != episode.uuid) return@launch // Make sure the player hasn't changed episodes before using the current time to seek
@@ -615,13 +615,13 @@ open class PlaybackManager @Inject constructor(
         trackPlayback(AnalyticsEvent.PLAYBACK_SKIP_FORWARD, playbackSource)
     }
 
-    fun skipBackward(playbackSource: PlaybackSource = PlaybackSource.UNKNOWN) {
+    fun skipBackward(playbackSource: PlaybackSource = PlaybackSource.UNKNOWN, jumpAmountSeconds: Int = settings.getSkipBackwardInSecs()) {
         launch {
             LogBuffer.i(LogBuffer.TAG_PLAYBACK, "Skip backward tapped")
 
             val episode = getCurrentEpisode() ?: return@launch
 
-            val jumpAmountMs = settings.getSkipBackwardInSecs() * 1000
+            val jumpAmountMs = jumpAmountSeconds * 1000
             val currentTimeMs = getCurrentTimeMs(episode = episode)
             if (currentTimeMs < 0) return@launch
 
@@ -653,6 +653,13 @@ open class PlaybackManager @Inject constructor(
 
     fun skipToChapter(chapter: Chapter) {
         launch {
+            seekToTimeMsInternal(chapter.startTime)
+        }
+    }
+
+    fun skipToChapter(index: Int) {
+        launch {
+            val chapter = playbackStateRelay.blockingFirst().chapters.getList().firstOrNull { it.index == index } ?: return@launch
             seekToTimeMsInternal(chapter.startTime)
         }
     }
@@ -1911,7 +1918,8 @@ open class PlaybackManager @Inject constructor(
         AUTO_PAUSE("auto_pause"),
         PLAYER_PLAYBACK_EFFECTS("player_playback_effects"),
         PODCAST_SETTINGS("podcast_settings"),
-        UNKNOWN("unknown");
+        UNKNOWN("unknown"),
+        TASKER("tasker");
 
         fun skipTracking() = this in listOf(AUTO_PLAY, AUTO_PAUSE)
     }
